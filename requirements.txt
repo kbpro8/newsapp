@@ -1,0 +1,6 @@
+requests
+openai
+beautifulsoup4
+lxml
+python-magic
+thefuzz
