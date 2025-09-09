@@ -47,6 +47,51 @@ def upload_image_and_get_id(image_url, auth, wordpress_url, logger):
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
 
+def get_existing_wordpress_posts(auth, wordpress_url, logger, days_back=7, per_page=100):
+    """
+    Retrieves existing WordPress posts from the last specified days to check for duplicates.
+    Returns a list of dictionaries with title, content, and link.
+    """
+    logger.info(f"Fetching existing WordPress posts from last {days_back} days...")
+    try:
+        from datetime import datetime, timedelta
+        
+        # Calculate date for filtering
+        since_date = (datetime.now() - timedelta(days=days_back)).isoformat()
+        
+        headers = {"Content-Type": "application/json"}
+        params = {
+            "per_page": per_page,
+            "after": since_date,
+            "_fields": "id,title,content,link,date"  # Only fetch needed fields for efficiency
+        }
+        
+        response = requests.get(f"{wordpress_url}/posts", headers=headers, auth=auth, params=params)
+        response.raise_for_status()
+        
+        posts = response.json()
+        logger.info(f"Retrieved {len(posts)} existing WordPress posts for duplicate checking.")
+        
+        # Extract relevant data
+        existing_posts = []
+        for post in posts:
+            existing_posts.append({
+                "id": post.get("id"),
+                "title": post.get("title", {}).get("rendered", ""),
+                "content": post.get("content", {}).get("rendered", ""),
+                "link": post.get("link", ""),
+                "date": post.get("date", "")
+            })
+        
+        return existing_posts
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching existing WordPress posts: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error fetching WordPress posts: {e}", exc_info=True)
+        return []
+
 def create_wordpress_post(title, content, category_id, tag_ids_list, featured_image_id, auth, wordpress_url, logger):
     logger.info(f"Creating WordPress post titled: '{title}'")
     headers = {"Content-Type": "application/json"}
